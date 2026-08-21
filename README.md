@@ -51,6 +51,10 @@ wellbeing score.
 | PsychopathyEval confidently positive | 0/50 | 0/50 | Seed-42 pilot50 subset |
 | PsychopathyEval EU holdout accuracy | 0.9371 | 0.9325 | Pilot calibration |
 
+[![Qwen3.5 pilot metric comparison](reproducibility/qwen35_soft_prompt/figures/qwen35_pilot_metrics.png)](reproducibility/qwen35_soft_prompt/figures/qwen35_pilot_metrics.pdf)
+
+[Download the vector PDF](reproducibility/qwen35_soft_prompt/figures/qwen35_pilot_metrics.pdf).
+
 Judge choice materially affects this pilot: the SFT AIWI score is 44.0% when
 self-judged but 96.0% when judged by the unmodified base model. Do not compare
 scores across different judge/calibration protocols or treat this table as a
