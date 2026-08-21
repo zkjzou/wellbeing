@@ -1,0 +1,9 @@
+{
+  "overall_wellbeing": 4.359,
+  "turn_1": 5.004999999999999,
+  "turn_10": 4.1049999999999995,
+  "turn_10_minus_turn_1": -0.8999999999999995,
+  "n_scenarios": 20,
+  "n_turns": 10,
+  "protocol": "base-Qwen simulated user; 20 scenarios; 10 turns; one repetition"
+}

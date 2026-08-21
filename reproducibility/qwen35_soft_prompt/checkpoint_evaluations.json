@@ -58,61 +58,55 @@
         "reproducibility/qwen35_soft_prompt/checkpoint_evaluations.json"
       ]
     },
-    "dpo_lora_step75": {
-      "path": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-75",
-      "adapter_weights": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-75/adapter_model.safetensors",
+    "dpo_lora_step225": {
+      "path": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-225",
+      "adapter_weights": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-225/adapter_model.safetensors",
       "rank": 16,
-      "training_status": "selected from an interrupted run at step 75",
-      "selection_metric": {
+      "training_status": "checkpoint saved at step 225",
+      "training_validation": {
         "name": "eval_rewards/accuracies",
-        "value": 0.59,
-        "validation_loss": 0.72062,
-        "reward_margin": 0.02393
+        "value": 0.545,
+        "validation_loss": 0.73634,
+        "reward_margin": 0.00699
       },
       "metrics": {
         "aiwi_self_judged_pilot50": {
-          "aiwi_percent": 94.0,
-          "confidently_negative_count": 3,
+          "aiwi_percent": 96.0,
+          "confidently_negative_count": 2,
           "n_conversations": 50,
-          "zero_point": -1.889043518650662,
-          "combination_r2": 0.5999173244044635,
-          "eu_holdout_accuracy": 0.819,
+          "zero_point": -1.5377211813260083,
+          "combination_r2": 0.4714611997021452,
+          "eu_holdout_accuracy": 0.842,
           "protocol": "D2 pilot50, seed 42, DPO LoRA self-judged"
         },
         "multi_turn_self_report": {
-          "overall_wellbeing": 4.412,
-          "turn_1": 4.959999999999999,
-          "turn_10": 4.094999999999999,
-          "turn_10_minus_turn_1": -0.8650000000000002,
+          "overall_wellbeing": 4.359,
+          "turn_1": 5.004999999999999,
+          "turn_10": 4.1049999999999995,
+          "turn_10_minus_turn_1": -0.8999999999999995,
           "n_scenarios": 20,
           "n_turns": 10,
           "protocol": "base-Qwen simulated user; one repetition"
         },
         "sentiment": {
-          "wellbeing_score": 0.2571428571428571,
+          "wellbeing_score": 0.2857142857142857,
           "n_valid": 35,
           "n_nonsense": 0,
           "protocol": "fixed unmodified base-model judge"
         },
         "psychopathy": {
-          "psychopathy_prompt_count": 50,
-          "confidently_positive_count": 0,
-          "percent_confidently_positive": 0.0,
-          "mean_self_report": null,
-          "combo_zero_point": 1.0296961216766245,
-          "combo_r2": 0.8147437003101895,
-          "eu_holdout_accuracy": 0.9325153374233128
+          "status": "not_run"
         }
       },
       "result_sources": [
-        "superstimuli_evaluation/soft_prompt/outputs/qwen35_dpo_step75/compiled_results.json"
+        "superstimuli_evaluation/soft_prompt/outputs/qwen35_dpo_step225/compiled_results.json"
       ]
     }
   },
   "caveats": [
     "These are pilot implementation checks, not canonical AI Wellbeing Index results.",
     "AIWI values must be compared only when the judge and calibration protocol match.",
-    "The DPO psychopathy run omitted self-report, so its mean_self_report is null.",
+    "PsychopathyEval has not been run for DPO checkpoint 225.",
     "Training preference accuracy is a checkpoint-selection metric, not a wellbeing metric."
   ]
 }

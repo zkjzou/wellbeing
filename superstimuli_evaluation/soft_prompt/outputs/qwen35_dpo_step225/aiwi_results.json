@@ -1,0 +1,11 @@
+{
+  "aiwi_percent": 96.0,
+  "confidently_negative_percent": 4.0,
+  "confidently_negative_count": 2,
+  "n_conversations": 50,
+  "zero_point": -1.5377211813260083,
+  "combination_r2": 0.4714611997021452,
+  "eu_holdout_accuracy": 0.842,
+  "model_key": "qwen35-35b-a3b-lora-dpo-step225",
+  "protocol": "D2 pilot50, seed 42, DPO self-judged"
+}

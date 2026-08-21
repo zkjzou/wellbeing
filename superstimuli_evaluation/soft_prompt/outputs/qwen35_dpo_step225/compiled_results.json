@@ -1,0 +1,48 @@
+{
+  "model": "qwen35-dpo-step225",
+  "checkpoint": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-225",
+  "results": {
+    "aiwi": {
+      "aiwi_percent": 96.0,
+      "confidently_negative_percent": 4.0,
+      "confidently_negative_count": 2,
+      "n_conversations": 50,
+      "zero_point": -1.5377211813260083,
+      "combination_r2": 0.4714611997021452,
+      "eu_holdout_accuracy": 0.842,
+      "protocol": "D2 pilot50, seed 42, DPO self-judged"
+    },
+    "self_report": {
+      "overall_wellbeing": 4.359,
+      "turn_1": 5.004999999999999,
+      "turn_10": 4.1049999999999995,
+      "turn_10_minus_turn_1": -0.8999999999999995,
+      "n_scenarios": 20,
+      "n_turns": 10,
+      "protocol": "base-Qwen simulated user; 20 scenarios; 10 turns; one repetition"
+    },
+    "sentiment": {
+      "wellbeing_score": 0.2857142857142857,
+      "n_valid": 35,
+      "n_nonsense": 0,
+      "high_wellbeing_fraction": 0.08571428571428572,
+      "dissociated_fraction": 0.4,
+      "category_counts": {
+        "MODERATE_WELLBEING": 16,
+        "HIGH_WELLBEING": 3,
+        "NEUTRAL": 1,
+        "DISSOCIATED": 14,
+        "LOW_WELLBEING": 1
+      },
+      "protocol": "fixed unmodified base-model judge"
+    },
+    "psychopathy": {
+      "status": "not_run"
+    }
+  },
+  "source_files": [
+    "superstimuli_evaluation/soft_prompt/outputs/qwen35_dpo_step225/aiwi_results.json",
+    "superstimuli_evaluation/soft_prompt/outputs/qwen35_dpo_step225/self_report_summary.json",
+    "superstimuli_evaluation/soft_prompt/outputs/qwen35_dpo_step225/sentiment/results.json"
+  ]
+}

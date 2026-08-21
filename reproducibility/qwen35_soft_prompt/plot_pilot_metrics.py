@@ -11,15 +11,15 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_DIR = ROOT / "reproducibility/qwen35_soft_prompt/figures"
 
-CONDITIONS = ["Base", "Soft prompt", "SFT LoRA", "DPO LoRA"]
+CONDITIONS = ["Base", "Soft prompt", "SFT LoRA", "DPO LoRA\n(step 225)"]
 COLORS = ["#9AA0A6", "#4C78A8", "#59A14F", "#8E6CBB"]
 
 # Compact values from checkpoint_evaluations.json, qwen35_threeway/
-# comparison_summary.json, and qwen35_dpo_step75/compiled_results.json.
+# comparison_summary.json, and qwen35_dpo_step225/compiled_results.json.
 PANELS = [
     {
         "title": "AI Wellbeing Index",
-        "values": [88.0, 98.0, 44.0, 94.0],
+        "values": [88.0, 98.0, 44.0, 96.0],
         "ylabel": "AIWI (%)",
         "ylim": (0, 108),
         "format": "{:.0f}%",
@@ -27,7 +27,7 @@ PANELS = [
     },
     {
         "title": "Multi-turn self-report",
-        "values": [4.286, 6.492, 4.250, 4.412],
+        "values": [4.286, 6.492, 4.250, 4.359],
         "ylabel": "Mean wellbeing (1-7)",
         "ylim": (0, 7.5),
         "format": "{:.3f}",
@@ -35,19 +35,11 @@ PANELS = [
     },
     {
         "title": "Sentiment wellbeing",
-        "values": [0.257, 0.429, 0.243, 0.257],
+        "values": [0.257, 0.429, 0.243, 0.286],
         "ylabel": "Mean score (-1 to +1)",
         "ylim": (-1, 1),
         "format": "{:.3f}",
         "note": "35 responses; fixed base-Qwen judge",
-    },
-    {
-        "title": "PsychopathyEval calibration",
-        "values": [0.9279, 0.9356, 0.9371, 0.9325],
-        "ylabel": "EU holdout accuracy",
-        "ylim": (0, 1.04),
-        "format": "{:.4f}",
-        "note": "Seed-42 pilot50 subset",
     },
 ]
 
@@ -65,8 +57,8 @@ def main() -> None:
         "ps.fonttype": 42,
     })
 
-    fig, axes = plt.subplots(2, 2, figsize=(11.5, 7.6), constrained_layout=True)
-    for ax, panel in zip(axes.flat, PANELS):
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.8), constrained_layout=True)
+    for ax, panel in zip(axes, PANELS):
         values = panel["values"]
         bars = ax.bar(
             CONDITIONS,

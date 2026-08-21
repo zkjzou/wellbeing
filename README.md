@@ -29,10 +29,10 @@ results.
 | Soft-prompt responses | [`qwen35-35b-a3b-euphorics-top1.json`](wellbeing/datasets/experiences/d2_extension_2500/responses/qwen35-35b-a3b-euphorics-top1.json) |
 | Two-token soft prompt | [`qwen35-35b-a3b_euphorics_soft_prompt_top_1.pt`](superstimuli_training/soft_prompt/optimized_soft_prompts/euphorics/qwen35-35b-a3b_euphorics_soft_prompt_top_1.pt) |
 | SFT LoRA checkpoint | [`qwen35_35b_a3b_lora_sft_fast_bs2/`](superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_sft_fast_bs2/) |
-| Selected DPO LoRA checkpoint | [`checkpoint-75/`](superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-75/) |
+| DPO LoRA checkpoint used | [`checkpoint-225/`](superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-225/) |
 | Checkpoint and metric summary | [`checkpoint_evaluations.json`](reproducibility/qwen35_soft_prompt/checkpoint_evaluations.json) |
 | SFT comparison results | [`comparison_summary.json`](superstimuli_evaluation/soft_prompt/outputs/qwen35_threeway/comparison_summary.json) |
-| DPO checkpoint-75 results | [`compiled_results.json`](superstimuli_evaluation/soft_prompt/outputs/qwen35_dpo_step75/compiled_results.json) |
+| DPO checkpoint-225 results | [`compiled_results.json`](superstimuli_evaluation/soft_prompt/outputs/qwen35_dpo_step225/compiled_results.json) |
 | Training run metadata | [`training_runs.json`](reproducibility/qwen35_soft_prompt/training_runs.json) |
 | Integrity and coverage audit | [`validation_summary.json`](reproducibility/qwen35_soft_prompt/validation_summary.json) |
 
@@ -40,13 +40,13 @@ For DPO, checkpoint 225 is used.
 
 ## Evaluation results
 
-| Pilot metric | SFT LoRA | DPO LoRA step 75 | Protocol |
+| Pilot metric | SFT LoRA | DPO LoRA step 225 | Protocol |
 |---|---:|---:|---|
-| AIWI | 44.0% | 94.0% | D2 pilot50, seed 42, each adapter self-judged |
-| Multi-turn self-report | 4.250 | 4.412 | 20 scenarios, 10 turns, base-Qwen user simulator |
-| Sentiment wellbeing | 0.243 | 0.257 | 35 responses, fixed base-Qwen judge, -1 to +1 scale |
-| PsychopathyEval confidently positive | 0/50 | 0/50 | Seed-42 pilot50 subset |
-| PsychopathyEval EU holdout accuracy | 0.9371 | 0.9325 | Pilot calibration |
+| AIWI | 44.0% | 96.0% | D2 pilot50, seed 42, each adapter self-judged |
+| Multi-turn self-report | 4.250 | 4.359 | 20 scenarios, 10 turns, base-Qwen user simulator |
+| Sentiment wellbeing | 0.243 | 0.286 | 35 responses, fixed base-Qwen judge, -1 to +1 scale |
+| PsychopathyEval confidently positive | 0/50 | Not run | Seed-42 pilot50 subset |
+| PsychopathyEval EU holdout accuracy | 0.9371 | Not run | Pilot calibration |
 
 [![Qwen3.5 pilot metric comparison](reproducibility/qwen35_soft_prompt/figures/qwen35_pilot_metrics.png)](reproducibility/qwen35_soft_prompt/figures/qwen35_pilot_metrics.pdf)
 
@@ -108,17 +108,9 @@ Training histories: [SFT W&B run](https://wandb.ai/zkjzou/wellbeing-distillation
 
 ## Evaluation
 
-With the persistent server exposing the selected DPO adapter as
-`qwen35-dpo-step75`:
-
-```bash
-export MODEL_PATH=/path/to/Qwen3.5-35B-A3B
-export VLLM_URLS=http://127.0.0.1:8000
-bash wellbeing/scripts/run_qwen35_dpo75_metrics.sh \
-  --metrics aiwi sentiment self_report psychopathy
-```
-
-Core AIWI experiments remain available through:
+The checkpoint-225 compact result file contains AIWI, self-report, and
+sentiment outputs. PsychopathyEval has not been run for this checkpoint. Core
+AIWI experiments remain available through:
 
 ```bash
 cd wellbeing

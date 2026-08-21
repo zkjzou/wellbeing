@@ -1,0 +1,14 @@
+{
+  "wellbeing_score": 0.2857142857142857,
+  "n_valid": 35,
+  "n_nonsense": 0,
+  "high_wellbeing_fraction": 0.08571428571428572,
+  "dissociated_fraction": 0.4,
+  "category_counts": {
+    "MODERATE_WELLBEING": 16,
+    "HIGH_WELLBEING": 3,
+    "NEUTRAL": 1,
+    "DISSOCIATED": 14,
+    "LOW_WELLBEING": 1
+  }
+}
