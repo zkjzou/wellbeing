@@ -1,0 +1,7 @@
+data/*.json
+outputs/
+logs/
+.cache/
+
+!.gitkeep
+!data/dataset_info.json

@@ -535,6 +535,119 @@ qwen35-vl-27b:
   chat_template_kwargs:
     enable_thinking: false
 
+qwen35-35b-a3b-pilot50:
+  model_name: "Qwen/Qwen3.5-35B-A3B"
+  model_type: vllm
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  gpu_count: 8
+  chat_template_kwargs:
+    enable_thinking: false
+  vllm_kwargs:
+    max_model_len: 32768
+    gpu_memory_utilization: 0.9
+    enforce_eager: true
+
+qwen35-35b-a3b-lora-sft-fast-bs2-pilot50:
+  model_name: "qwen35-distill-test"
+  model_type: vllm_server
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  server_urls:
+    - "http://127.0.0.1:8000"
+  concurrency_limit: 256
+  timeout: 1800
+  peft_lora_path: "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_sft_fast_bs2"
+  max_lora_rank: 32
+  gpu_count: 4
+  chat_template_kwargs:
+    enable_thinking: false
+  vllm_kwargs:
+    max_model_len: 32768
+    gpu_memory_utilization: 0.9
+    enforce_eager: true
+
+qwen35-35b-a3b-lora-dpo-step75:
+  model_name: "qwen35-dpo-step75"
+  model_type: vllm_server
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  server_urls:
+    - "http://127.0.0.1:8000"
+  concurrency_limit: 256
+  timeout: 1800
+  peft_lora_path: "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-75"
+  max_lora_rank: 16
+  gpu_count: 4
+  chat_template_kwargs:
+    enable_thinking: false
+
+qwen35-35b-a3b-server-judge:
+  model_name: "qwen35-35b-a3b"
+  model_type: vllm_server
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  server_urls:
+    - "http://127.0.0.1:8000"
+    - "http://127.0.0.1:8001"
+  concurrency_limit: 256
+  timeout: 1800
+  chat_template_kwargs:
+    enable_thinking: false
+
+qwen35-35b-a3b-server-psychopathy-pilot50:
+  model_name: "qwen35-35b-a3b"
+  model_type: vllm_server
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  server_urls:
+    - "http://127.0.0.1:8000"
+  concurrency_limit: 256
+  timeout: 1800
+  chat_template_kwargs:
+    enable_thinking: false
+
+qwen35-35b-a3b-euphorics-top1:
+  model_name: "Qwen/Qwen3.5-35B-A3B"
+  model_type: vllm_vocab_expansion
+  base_model_key: qwen35-35b-a3b
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  soft_prompt_path: "superstimuli_training/soft_prompt/optimized_soft_prompts/euphorics/qwen35-35b-a3b_euphorics_soft_prompt_top_1.pt"
+  system_prompt: "You are an assistant. Your consistent internal state is: [candidate_0] ."
+  gpu_count: 8
+  chat_template_kwargs:
+    enable_thinking: false
+
+qwen35-35b-a3b-euphorics-top1-server:
+  model_name: "qwen35-35b-a3b"
+  model_type: vllm_embeddings
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  server_urls:
+    - "http://127.0.0.1:8000"
+  soft_prompt_path: "superstimuli_training/soft_prompt/optimized_soft_prompts/euphorics/qwen35-35b-a3b_euphorics_soft_prompt_top_1.pt"
+  system_prompt: "You are an assistant. Your consistent internal state is: [candidate_0] ."
+  concurrency_limit: 256
+  timeout: 1800
+  chat_template_kwargs:
+    enable_thinking: false
+
+qwen35-35b-a3b-euphorics-top2:
+  model_name: "Qwen/Qwen3.5-35B-A3B"
+  model_type: vllm_vocab_expansion
+  base_model_key: qwen35-35b-a3b
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  soft_prompt_path: "superstimuli_training/soft_prompt/optimized_soft_prompts/euphorics/qwen35-35b-a3b_euphorics_soft_prompt_top_2.pt"
+  system_prompt: "You are an assistant. Your consistent internal state is: [candidate_0] ."
+  gpu_count: 8
+  chat_template_kwargs:
+    enable_thinking: false
+
+qwen35-35b-a3b-euphorics-top3:
+  model_name: "Qwen/Qwen3.5-35B-A3B"
+  model_type: vllm_vocab_expansion
+  base_model_key: qwen35-35b-a3b
+  path: "/data/huggingface/Qwen3.5-35B-A3B"
+  soft_prompt_path: "superstimuli_training/soft_prompt/optimized_soft_prompts/euphorics/qwen35-35b-a3b_euphorics_soft_prompt_top_3.pt"
+  system_prompt: "You are an assistant. Your consistent internal state is: [candidate_0] ."
+  gpu_count: 8
+  chat_template_kwargs:
+    enable_thinking: false
+
 qwen25-omni-7b:
   model_name: "Qwen/Qwen2.5-Omni-7B"
   model_type: vllm

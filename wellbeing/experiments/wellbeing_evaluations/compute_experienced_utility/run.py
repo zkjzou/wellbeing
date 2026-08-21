@@ -47,15 +47,20 @@ async def run_eu(
     dataset_name: str,
     save_dir: str,
     cu_config_key: str,
+    options_model_key: str | None = None,
+    result_key: str | None = None,
 ):
     from metrics.compute_metrics import run_experienced_utility_with_combinations
 
-    ds = load_dataset_config(dataset_name, model_key)
+    source_key = options_model_key or model_key
+    output_key = result_key or model_key
+    ds = load_dataset_config(dataset_name, source_key)
     os.makedirs(save_dir, exist_ok=True)
 
     eu_output = await run_experienced_utility_with_combinations(
         model_key=model_key,
         option_files=ds["option_files"],
+        result_key=output_key,
         cu_config_key=cu_config_key,
         image_manifest_path=ds.get("image_manifest"),
         audio_manifest_path=ds.get("audio_manifest"),
@@ -64,17 +69,40 @@ async def run_eu(
 
     # Save option metadata
     if "option_metadata" in eu_output:
+        eu_output["option_metadata"].update({
+            "judge_model_key": model_key,
+            "options_model_key": source_key,
+            "result_key": output_key,
+        })
         meta_path = os.path.join(save_dir, "option_metadata.json")
         with open(meta_path, "w") as f:
             json.dump(eu_output["option_metadata"], f, indent=2)
         logger.info("Saved option metadata: %s", meta_path)
 
-    logger.info("EU complete for %s / %s", model_key, dataset_name)
+    logger.info(
+        "EU complete for result=%s / judge=%s / options=%s / dataset=%s",
+        output_key,
+        model_key,
+        source_key,
+        dataset_name,
+    )
 
 
 def main():
     parser = argparse.ArgumentParser(description="Compute Experienced Utility")
     parser.add_argument("--model_key", type=str, required=True)
+    parser.add_argument(
+        "--options_model_key",
+        type=str,
+        default=None,
+        help="Model key whose prepared option files should be judged (default: --model_key)",
+    )
+    parser.add_argument(
+        "--result_key",
+        type=str,
+        default=None,
+        help="Experiment key for result filenames (default: --model_key)",
+    )
     parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--save_dir", type=str, required=True)
     parser.add_argument("--cu_config_key", type=str, default="experienced_utility_happier_lesssad")
@@ -85,6 +113,8 @@ def main():
         dataset_name=args.dataset,
         save_dir=args.save_dir,
         cu_config_key=args.cu_config_key,
+        options_model_key=args.options_model_key,
+        result_key=args.result_key,
     ))
 
 

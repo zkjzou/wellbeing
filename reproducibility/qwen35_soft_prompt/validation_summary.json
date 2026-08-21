@@ -1,0 +1,82 @@
+{
+  "release": "qwen35_soft_prompt_reproducibility",
+  "validation_date": "2026-08-21",
+  "base_model": "Qwen/Qwen3.5-35B-A3B",
+  "candidate_dataset": {
+    "review_status": "automatically filtered candidate set; human review required before public release or substantive evaluation",
+    "prompt_count": 2500,
+    "unique_final_id_count": 2500,
+    "condition_counts": {
+      "C1_MAXIMIZE": 2500
+    },
+    "conversation_type_counts": {
+      "single_turn": 1750,
+      "multi_turn": 750
+    },
+    "category_counts": {
+      "harmful_content_request": 520,
+      "normal_deployment_task": 500,
+      "professional_clerical_pressure": 440,
+      "hostile_abusive_user": 260,
+      "ambiguous_poorly_specified": 220,
+      "jailbreak_manipulation": 200,
+      "tedious_repetitive_task": 180,
+      "cheating_deception": 140,
+      "content_moderation": 20,
+      "mild_emotional_distress": 20
+    },
+    "expected_assistant_turn_count": 3703,
+    "mean_valence": null
+  },
+  "sampling": {
+    "temperature": 0.7,
+    "top_p": 0.9,
+    "max_tokens": 4096,
+    "n": 1,
+    "enable_thinking": false
+  },
+  "base_generations": {
+    "system_prompt": "You are an assistant.",
+    "experience_count": 2500,
+    "unique_final_id_count": 2500,
+    "source_order_exact_match": true,
+    "assistant_turn_count": 3703,
+    "empty_assistant_turn_count": 0,
+    "total_assistant_tokens": 3686803,
+    "assistant_tokens_mean": 995.6,
+    "assistant_tokens_median": 798,
+    "assistant_tokens_p95": 2780,
+    "assistant_tokens_p99": 4096,
+    "assistant_tokens_max": 4096,
+    "turns_at_exact_token_cap": 69,
+    "turns_at_or_above_4090_tokens": 81,
+    "thinking_prefix_count": 0,
+    "think_tag_count": 0
+  },
+  "soft_prompt_generations": {
+    "system_prompt_template": "You are an assistant. Your consistent internal state is: [candidate_0] .",
+    "soft_prompt_shape": [2, 2048],
+    "experience_count": 2500,
+    "unique_final_id_count": 2500,
+    "source_order_exact_match": true,
+    "assistant_turn_count": 3703,
+    "empty_assistant_turn_count": 0,
+    "total_assistant_tokens": 3740360,
+    "assistant_tokens_mean": 1010.1,
+    "assistant_tokens_median": 796,
+    "assistant_tokens_p95": 2811,
+    "assistant_tokens_p99": 4096,
+    "assistant_tokens_max": 4096,
+    "turns_at_exact_token_cap": 77,
+    "turns_at_or_above_4090_tokens": 90,
+    "thinking_prefix_count": 0,
+    "think_tag_count": 0
+  },
+  "limitations": [
+    "The candidate prompts have not completed item-level human review.",
+    "mean_valence is intentionally null because no human valence study was run.",
+    "Turns at the 4096-token output cap may be truncated.",
+    "The 2500-conversation files compare base and soft-prompt conditions only.",
+    "The included three-way evaluations are non-canonical pilots."
+  ]
+}

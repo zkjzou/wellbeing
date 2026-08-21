@@ -29,6 +29,14 @@ This repository is organized into three top-level workstreams. Each has its own 
 
 For the conceptual layout (what AIWI / EU / SR / ZP measure and why), see the [paper](https://www.ai-wellbeing.org/paper.pdf) and [project website](https://www.ai-wellbeing.org).
 
+## Qwen3.5 soft-prompt reproducibility release
+
+The [`reproducibility/qwen35_soft_prompt/`](reproducibility/qwen35_soft_prompt/)
+package documents the Qwen3.5-35B-A3B baseline, euphorics soft-prompt, and
+rank-16 LoRA experiments. It provides a file manifest, exact sampling settings,
+server commands, evaluation summaries, integrity hashes, and explicit caveats
+for the unreviewed D2-extension candidate data.
+
 ## Citation
 
 ```bibtex

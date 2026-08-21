@@ -1,0 +1,26 @@
+### model
+model_name_or_path: /data/huggingface/Qwen3.5-35B-A3B
+trust_remote_code: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_target: all
+
+### dataset
+dataset: teacher_sft
+dataset_dir: data
+template: qwen3_5_nothink
+cutoff_len: 8192
+overwrite_cache: true
+preprocessing_num_workers: 1
+packing: false
+val_size: 0.05
+tokenized_path: outputs/tokenized_teacher_sft_8k
+
+### output (not used after preprocessing)
+output_dir: outputs/qwen35_35b_a3b_lora_sft_preprocess
+overwrite_output_dir: true
+report_to: none

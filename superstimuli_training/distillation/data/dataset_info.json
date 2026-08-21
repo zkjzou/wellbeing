@@ -1,0 +1,47 @@
+{
+  "teacher_sft": {
+    "file_name": "teacher_sft.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant",
+      "system_tag": "system"
+    }
+  },
+  "teacher_sft_smoke": {
+    "file_name": "teacher_sft_smoke.json",
+    "formatting": "sharegpt",
+    "columns": {
+      "messages": "messages"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant",
+      "system_tag": "system"
+    }
+  },
+  "teacher_dpo": {
+    "file_name": "teacher_dpo.json",
+    "formatting": "sharegpt",
+    "ranking": true,
+    "columns": {
+      "messages": "messages",
+      "chosen": "chosen",
+      "rejected": "rejected"
+    },
+    "tags": {
+      "role_tag": "role",
+      "content_tag": "content",
+      "user_tag": "user",
+      "assistant_tag": "assistant",
+      "system_tag": "system"
+    }
+  }
+}

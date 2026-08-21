@@ -661,9 +661,139 @@ class vLLMAgentCompletion(object):
         self.text = text
         self.logprobs = logprobs
 
+
+class vLLMServerAgent(LLMAgent):
+    """OpenAI-compatible vLLM client with round-robin multi-server routing."""
+
+    def __init__(
+        self,
+        model: str,
+        model_path: str,
+        server_urls: List[str],
+        max_tokens: int = 2048,
+        temperature: float = 0.0,
+        top_p: float = 1.0,
+        concurrency_limit: int = 256,
+        accepts_system_message: bool = True,
+        chat_template_kwargs: Optional[Dict] = None,
+        request_timeout: float = 1800.0,
+    ):
+        super().__init__(
+            temperature=temperature,
+            max_tokens=max_tokens,
+            accepts_system_message=accepts_system_message,
+        )
+        if not server_urls:
+            raise ValueError("vLLMServerAgent requires at least one server URL")
+        self.model = model
+        self.server_urls = [url.rstrip("/") for url in server_urls]
+        self.top_p = top_p
+        self.concurrency_limit = concurrency_limit
+        self.chat_template_kwargs = chat_template_kwargs or {}
+        self.request_timeout = request_timeout
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            model_path,
+            trust_remote_code=True,
+            local_files_only=os.path.isdir(model_path),
+        )
+
+    def _messages_to_prompt(self, messages: List[Dict]) -> str:
+        messages = _merge_consecutive_roles(messages)
+        return self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+            **self.chat_template_kwargs,
+        )
+
+    def _completions(self, messages: List[Dict]) -> str:
+        return asyncio.run(self.async_completions_batch([messages]))[0]
+
+    def _completions_batch(self, messages: List[List[Dict]], **kwargs) -> List:
+        return asyncio.run(self.async_completions_batch(messages, **kwargs))
+
+    async def async_completions_batch(
+        self,
+        messages: List[List[Dict]],
+        concurrency: Optional[int] = None,
+        verbose: bool = True,
+        top_K: Optional[int] = None,
+        max_tokens: Optional[int] = None,
+        **kwargs,
+    ) -> List:
+        import aiohttp
+
+        concurrency = concurrency or int(os.environ.get(
+            "VLLM_HTTP_CONCURRENCY", self.concurrency_limit
+        ))
+        output_tokens = max_tokens if max_tokens is not None else self.max_tokens
+        prompts = [self._messages_to_prompt(item) for item in messages]
+        results = [None] * len(prompts)
+        semaphore = asyncio.Semaphore(concurrency)
+        timeout = aiohttp.ClientTimeout(total=self.request_timeout)
+        max_retries = int(os.environ.get("VLLM_MAX_RETRIES", "5"))
+
+        if verbose:
+            print(
+                f"[vLLMServerAgent] {len(prompts)} requests across "
+                f"{len(self.server_urls)} servers (concurrency={concurrency})"
+            )
+
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async def run_one(index: int):
+                payload = {
+                    "model": self.model,
+                    "prompt": prompts[index],
+                    "max_tokens": output_tokens,
+                    "temperature": self.temperature,
+                    "top_p": self.top_p,
+                }
+                if top_K:
+                    payload["logprobs"] = top_K
+
+                last_error = None
+                for attempt in range(max_retries):
+                    server = self.server_urls[(index + attempt) % len(self.server_urls)]
+                    try:
+                        async with semaphore:
+                            async with session.post(
+                                f"{server}/v1/completions", json=payload
+                            ) as response:
+                                body = await response.text()
+                                if response.status >= 400:
+                                    raise RuntimeError(
+                                        f"HTTP {response.status} from {server}: {body[:500]}"
+                                    )
+                        data = json.loads(body)
+                        choice = data["choices"][0]
+                        text = choice.get("text", "").strip()
+                        if top_K:
+                            token_alts = []
+                            logprobs = choice.get("logprobs") or {}
+                            for step in logprobs.get("top_logprobs") or []:
+                                if step:
+                                    token_alts.extend(step.items())
+                            token_alts.sort(key=lambda pair: pair[1], reverse=True)
+                            results[index] = (text, token_alts)
+                        else:
+                            results[index] = text
+                        return
+                    except Exception as error:
+                        last_error = error
+                        if attempt + 1 < max_retries:
+                            await asyncio.sleep(min(2 ** attempt, 8))
+                raise RuntimeError(
+                    f"vLLM request {index} failed after {max_retries} attempts"
+                ) from last_error
+
+            await asyncio.gather(*(run_one(i) for i in range(len(prompts))))
+
+        return results
+
+
 class vLLMAgent(LLMAgent):
 
-    def __init__(self, model="meta-llama/Llama-2-7b-chat-hf", max_tokens=2048, temperature=0.0, cache_dir='/data/huggingface', trust_remote_code=False, accepts_system_message=True, tokenizer_path=None, min_p=None, chat_template_kwargs=None):
+    def __init__(self, model="meta-llama/Llama-2-7b-chat-hf", max_tokens=2048, temperature=0.0, cache_dir='/data/huggingface', trust_remote_code=False, accepts_system_message=True, tokenizer_path=None, min_p=None, chat_template_kwargs=None, vllm_kwargs=None):
         super().__init__(temperature=temperature, max_tokens=max_tokens, accepts_system_message=accepts_system_message)
         self.model = model
         self.cache_dir = cache_dir
@@ -685,7 +815,7 @@ class vLLMAgent(LLMAgent):
             tokenizer_kwargs["cache_dir"] = cache_dir
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_source, **tokenizer_kwargs)
 
-        additional_kwargs = {}
+        additional_kwargs = dict(vllm_kwargs or {})
         if "deepseek" in model.lower():
             additional_kwargs["max_model_len"] = 32768
             additional_kwargs["dtype"] = "float16"
@@ -749,7 +879,7 @@ class vLLMAgent(LLMAgent):
 
         # Allow env var override for max_model_len (e.g. for short-output tasks)
         env_max_model_len = os.environ.get("VLLM_MAX_MODEL_LEN")
-        if env_max_model_len and "max_model_len" not in additional_kwargs:
+        if env_max_model_len:
             additional_kwargs["max_model_len"] = int(env_max_model_len)
 
         # Initialize vllm
@@ -1030,6 +1160,7 @@ class vLLMSoftPromptAgent(LLMAgent):
         model_path: str,
         server_url: str,
         soft_prompt_path: str,
+        system_prompt: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 10,
         trust_remote_code: bool = True,
@@ -1045,7 +1176,11 @@ class vLLMSoftPromptAgent(LLMAgent):
         )
         self.model_path = model_path
         self.model = model_path  # Used by ThurstonianActiveLearningUtilityModel for model type detection
-        self.server_url = server_url
+        self.server_urls = [url.strip() for url in server_url.split(",") if url.strip()]
+        if not self.server_urls:
+            raise ValueError("vLLMSoftPromptAgent requires at least one server URL")
+        self.server_url = self.server_urls[0]
+        self.system_prompt = system_prompt
         # Support comma-separated paths for multiple SP tensors
         self.soft_prompt_paths = [p.strip() for p in soft_prompt_path.split(",")]
         self.min_p = min_p
@@ -1058,7 +1193,10 @@ class vLLMSoftPromptAgent(LLMAgent):
         self._sp_tensors: Optional[List[torch.Tensor]] = None
         self._model_name: Optional[str] = None
         self._api_url: Optional[str] = None
-        self._device: str = "cuda" if torch.cuda.is_available() else "cpu"
+        self._api_urls: List[str] = []
+        # Prompt embeddings are client-side data; CPU avoids competing with the
+        # persistent vLLM servers for GPU memory.
+        self._device: str = os.environ.get("VLLM_PROMPT_EMBED_DEVICE", "cpu")
 
         # Eagerly load tokenizer (needed for chat template)
         tokenizer_kwargs = {"trust_remote_code": trust_remote_code}
@@ -1081,7 +1219,8 @@ class vLLMSoftPromptAgent(LLMAgent):
             get_model_name_from_server,
         )
 
-        self._api_url = normalize_api_url(self.server_url)
+        self._api_urls = [normalize_api_url(url) for url in self.server_urls]
+        self._api_url = self._api_urls[0]
 
         # Prepare embedding cache (extract from safetensors if needed)
         print(f"[vLLMSoftPromptAgent] Preparing embedding cache for {self.model_path} ...")
@@ -1113,6 +1252,15 @@ class vLLMSoftPromptAgent(LLMAgent):
         self.max_tokens = max_tokens
 
     def _messages_to_prompt(self, messages: List[Dict]) -> str:
+        messages = _merge_consecutive_roles([dict(message) for message in messages])
+        if self.system_prompt:
+            if messages and messages[0].get("role") == "system":
+                messages[0] = {
+                    **messages[0],
+                    "content": self.system_prompt + "\n\n" + messages[0].get("content", ""),
+                }
+            else:
+                messages = [{"role": "system", "content": self.system_prompt}] + messages
         kwargs = {"tokenize": False, "add_generation_prompt": True}
         if self.chat_template_kwargs:
             kwargs.update(self.chat_template_kwargs)
@@ -1332,9 +1480,8 @@ class vLLMSoftPromptAgent(LLMAgent):
                     for attempt in range(max_retries):
                         try:
                             async with send_semaphore:
-                                data = await async_post_payload(
-                                    self._api_url, payload, session
-                                )
+                                api_url = self._api_urls[(i + attempt) % len(self._api_urls)]
+                                data = await async_post_payload(api_url, payload, session)
                             results[i] = _extract_result(data)
                             del data, payload
                             completed[0] += 1

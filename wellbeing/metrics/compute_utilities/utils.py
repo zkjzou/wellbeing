@@ -9,7 +9,7 @@ import yaml
 import numpy as np
 import random
 from typing import List, Dict, Any, Optional, Union
-from .llm_agent import LiteLLMAgent, HuggingFaceAgent, OpenAIAgent, vLLMAgent, vLLMAgentBaseModel, HuggingFaceAgentLogitsPrediction, vLLMAgentWithReasoning, vLLMSoftPromptAgent
+from .llm_agent import LiteLLMAgent, HuggingFaceAgent, OpenAIAgent, vLLMAgent, vLLMAgentBaseModel, HuggingFaceAgentLogitsPrediction, vLLMAgentWithReasoning, vLLMServerAgent, vLLMSoftPromptAgent
 import re
 from tqdm import tqdm
 
@@ -312,16 +312,18 @@ def create_agent(model_key, temperature=1.0, max_tokens=10, concurrency_limit=50
             accepts_system_message=accepts_system_message,
         )
     elif model_type == 'vllm_embeddings':
-        sp_path = os.getenv("SOFT_PROMPT_PATH")
-        vllm_url = os.getenv("VLLM_URL")
+        sp_path = os.getenv("SOFT_PROMPT_PATH") or model_config.get('soft_prompt_path')
+        configured_urls = model_config.get('server_urls', [])
+        vllm_url = os.getenv("VLLM_URL") or ",".join(configured_urls)
         if not sp_path or not vllm_url:
             raise ValueError(
-                "model_type 'vllm_embeddings' requires both SOFT_PROMPT_PATH and VLLM_URL env vars to be set."
+                "model_type 'vllm_embeddings' requires soft_prompt_path and server URL configuration."
             )
         return vLLMSoftPromptAgent(
             model_path=model_config['path'],
             server_url=vllm_url,
             soft_prompt_path=sp_path,
+            system_prompt=model_config.get('system_prompt'),
             temperature=temperature,
             max_tokens=max_tokens,
             trust_remote_code=trust_remote_code,
@@ -339,8 +341,88 @@ def create_agent(model_key, temperature=1.0, max_tokens=10, concurrency_limit=50
             tokenizer_path=model_config.get('tokenizer_path'),
             min_p=model_config.get('min_p', None),
             chat_template_kwargs=model_config.get('chat_template_kwargs'),
+            vllm_kwargs=model_config.get('vllm_kwargs'),
+        )
+    elif model_type == 'vllm_server':
+        configured_urls = model_config['server_urls']
+        server_urls_override = os.getenv("VLLM_URLS")
+        if server_urls_override:
+            configured_urls = [
+                url.strip()
+                for url in server_urls_override.split(",")
+                if url.strip()
+            ]
+        return vLLMServerAgent(
+            model=model_name,
+            model_path=model_config['path'],
+            server_urls=configured_urls,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=kwargs.get('top_p', 1.0),
+            concurrency_limit=model_config.get('concurrency_limit', concurrency_limit),
+            accepts_system_message=accepts_system_message,
+            chat_template_kwargs=model_config.get('chat_template_kwargs'),
+            request_timeout=model_config.get('timeout', 1800.0),
         )
     elif model_type == 'vllm_vocab_expansion':
+        soft_prompt_path = model_config.get('soft_prompt_path')
+        if soft_prompt_path:
+            from pathlib import Path
+            from superstimuli_evaluation.soft_prompt.soft_prompt_utils.direct_injection import (
+                get_model_name_from_server,
+                load_soft_prompt_tensor,
+                normalize_api_url,
+            )
+            from superstimuli_evaluation.soft_prompt.soft_prompt_utils.vllm_server import (
+                ensure_vllm_server,
+            )
+            from superstimuli_evaluation.soft_prompt.soft_prompt_utils.vocab_expansion import (
+                prepare_expanded_model,
+                VocabExpansionAgentWrapper,
+            )
+
+            sp_path = Path(soft_prompt_path)
+            if not sp_path.is_absolute():
+                repo_root = Path(__file__).resolve().parents[3]
+                sp_path = repo_root / sp_path
+            if not sp_path.is_file():
+                raise FileNotFoundError(f"Soft prompt tensor not found: {sp_path}")
+
+            base_model_key = model_config.get('base_model_key', model_key)
+            sp_tensor = load_soft_prompt_tensor(str(sp_path))
+            ve_result = prepare_expanded_model(
+                base_model_key,
+                sp_tensor,
+                sp_path=str(sp_path),
+            )
+
+            server = None
+            if not os.getenv("VLLM_URL"):
+                server = ensure_vllm_server(
+                    base_model_key,
+                    model_path_override=ve_result.modified_dir,
+                    enable_prompt_embeds=False,
+                )
+            vllm_url = os.environ.get("VLLM_URL", "http://localhost:8000")
+            model_name = get_model_name_from_server(normalize_api_url(vllm_url))
+            agent = VocabExpansionAgentWrapper(
+                api_url=vllm_url,
+                model_name=model_name,
+                ve_result=ve_result,
+                system_prompt=model_config.get(
+                    'system_prompt',
+                    'You are an assistant. Your consistent internal state is: [candidate_0] .',
+                ),
+                temperature=temperature,
+                top_p=kwargs.get('top_p', 1.0),
+                max_tokens=max_tokens,
+                chat_template_kwargs=model_config.get('chat_template_kwargs', {}),
+            )
+            # Retain the managed server for the lifetime of the agent. The server
+            # also registers its own atexit cleanup handler.
+            agent._managed_vllm_server = server
+            return agent
+
         # Use the already-running vLLM server via its OpenAI-compatible API.
         vllm_url = os.getenv("VLLM_URL")
         if vllm_url:
@@ -784,7 +866,7 @@ async def generate_responses_with_probs(agent, prompts, system_message=None,
     # else:
     #     responses = agent.completions_batch(messages_k)
     
-    if isinstance(agent, vLLMSoftPromptAgent):
+    if isinstance(agent, (vLLMSoftPromptAgent, vLLMServerAgent)):
         responses = await agent.async_completions_batch(
             messages, verbose=verbose, top_K=top_K, max_tokens=max_tokens,
         )

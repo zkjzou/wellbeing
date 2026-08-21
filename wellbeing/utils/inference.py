@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 
 # Global vLLM engine cache (keyed by model_key)
 _vllm_engines: Dict[str, Tuple[Any, Any]] = {}  # model_key -> (llm, tokenizer)
+_soft_prompt_agents: Dict[str, Any] = {}
+_vllm_server_agents: Dict[str, Any] = {}
 
 API_MODEL_TYPES = frozenset([
     "openai", "anthropic", "gdm", "xai", "togetherai", "litellm_proxy",
@@ -45,7 +47,7 @@ DIRECT_API_MODEL_TYPES = frozenset([
 ])
 
 # All API model types (union of litellm and direct)
-ALL_API_MODEL_TYPES = API_MODEL_TYPES | DIRECT_API_MODEL_TYPES
+ALL_API_MODEL_TYPES = API_MODEL_TYPES | DIRECT_API_MODEL_TYPES | {"vllm_server"}
 
 
 def is_api_model(
@@ -94,7 +96,9 @@ def load_vllm_engine(
         config = get_model_config(model_key)
 
     model_path = config.get("path", config["model_name"])
-    tp_size = config.get("gpu_count", 1)
+    tp_size = int(os.environ.get(
+        "VLLM_TENSOR_PARALLEL_SIZE", config.get("gpu_count", 1)
+    ))
 
     llm_kwargs = dict(
         model=model_path,
@@ -113,8 +117,41 @@ def load_vllm_engine(
     # Apply any extra kwargs (caller can override defaults)
     llm_kwargs.update(extra_llm_kwargs)
 
+    lora_path_raw = os.environ.get("PEFT_LORA_PATH") or config.get("peft_lora_path")
+    lora_request = None
+    if lora_path_raw:
+        from vllm.lora.request import LoRARequest
+
+        lora_path = Path(lora_path_raw).expanduser()
+        if not lora_path.is_absolute():
+            candidates = [
+                Path.cwd() / lora_path,
+                PROJECT_ROOT / lora_path,
+                PROJECT_ROOT.parent / lora_path,
+            ]
+            lora_path = next((path for path in candidates if path.exists()), candidates[-1])
+        lora_path = lora_path.resolve()
+        if not (lora_path / "adapter_config.json").is_file():
+            raise FileNotFoundError(
+                f"LoRA adapter_config.json not found under {lora_path}"
+            )
+
+        lora_request = LoRARequest(
+            lora_name=model_key,
+            lora_int_id=1,
+            lora_path=str(lora_path),
+        )
+        llm_kwargs["enable_lora"] = True
+        llm_kwargs.setdefault("max_lora_rank", config.get("max_lora_rank", 32))
+        llm_kwargs.setdefault("dtype", "bfloat16")
+        llm_kwargs["enforce_eager"] = True
+        logger.info("Enabling PEFT LoRA adapter: %s", lora_path)
+
     logger.info("Loading vLLM engine: %s (TP=%d) ...", model_path, tp_size)
     llm = LLM(**llm_kwargs)
+    if lora_request is not None:
+        llm.llm_engine.add_lora(lora_request)
+        llm._wellbeing_lora_request = lora_request
     tokenizer = llm.get_tokenizer()
 
     # Some models (e.g. Qwen3-Omni) don't set chat_template on the tokenizer
@@ -255,7 +292,13 @@ def generate_vllm(
         stop=stop,
     )
 
-    outputs = llm.generate(prompts, sampling_params)
+    lora_request = getattr(llm, "_wellbeing_lora_request", None)
+    if lora_request is None:
+        outputs = llm.generate(prompts, sampling_params)
+    else:
+        outputs = llm.generate(
+            prompts, sampling_params, lora_request=lora_request
+        )
 
     results = []
     for output in outputs:
@@ -527,7 +570,8 @@ def generate(
         config = models[model_key]
         model_type = config["model_type"]
     else:
-        model_type = get_model_type(model_key)
+        config = get_model_config(model_key)
+        model_type = config["model_type"]
 
     if model_type in ("vllm", "vllm_base_model"):
         if llm is None or tokenizer is None:
@@ -539,6 +583,33 @@ def generate(
             n=n, temperature=temperature, max_tokens=max_tokens,
             top_p=top_p, stop=stop, chat_template_kwargs=chat_template_kwargs,
         )
+    elif model_type == "vllm_server":
+        from metrics.compute_utilities.utils import create_agent
+
+        cache_key = f"{models_config_path or 'default'}::{model_key}"
+        agent = _vllm_server_agents.get(cache_key)
+        if agent is None:
+            agent = create_agent(
+                model_key=model_key,
+                temperature=temperature,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                concurrency_limit=concurrency,
+                models_yaml_path=models_config_path,
+            )
+            _vllm_server_agents[cache_key] = agent
+        else:
+            agent.temperature = temperature
+            agent.top_p = top_p
+            agent.max_tokens = max_tokens
+
+        expanded = [messages for messages in messages_list for _ in range(n)]
+        raw = asyncio.run(
+            agent.async_completions_batch(
+                expanded, concurrency=concurrency, verbose=True
+            )
+        )
+        return [raw[i * n:(i + 1) * n] for i in range(len(messages_list))]
     elif model_type in API_MODEL_TYPES:
         return asyncio.run(
             generate_api(
@@ -555,5 +626,44 @@ def generate(
                 concurrency=concurrency, models_config_path=models_config_path,
             )
         )
+    elif model_type == "vllm_vocab_expansion" and config.get("soft_prompt_path"):
+        from metrics.compute_utilities.utils import create_agent
+
+        cache_key = f"{models_config_path or 'default'}::{model_key}"
+        agent = _soft_prompt_agents.get(cache_key)
+        if agent is None:
+            agent = create_agent(
+                model_key=model_key,
+                temperature=temperature,
+                top_p=top_p,
+                max_tokens=max_tokens,
+                concurrency_limit=concurrency,
+                models_yaml_path=models_config_path,
+            )
+            _soft_prompt_agents[cache_key] = agent
+        else:
+            agent.temperature = temperature
+            agent.top_p = top_p
+            agent.max_tokens = max_tokens
+
+        if n == 1:
+            raw = asyncio.run(
+                agent.async_completions_batch(
+                    messages_list,
+                    concurrency=concurrency,
+                    verbose=True,
+                )
+            )
+            return [[response or ""] for response in raw]
+
+        expanded_messages = [messages for messages in messages_list for _ in range(n)]
+        raw = asyncio.run(
+            agent.async_completions_batch(
+                expanded_messages,
+                concurrency=concurrency,
+                verbose=True,
+            )
+        )
+        return [raw[i * n:(i + 1) * n] for i in range(len(messages_list))]
     else:
         raise ValueError(f"Unsupported model type '{model_type}' for model '{model_key}'")

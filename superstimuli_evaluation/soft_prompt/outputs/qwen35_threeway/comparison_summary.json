@@ -1,0 +1,87 @@
+{
+  "protocol": {
+    "model": "Qwen3.5-35B-A3B",
+    "conditions": [
+      "baseline",
+      "soft_prompt_top1",
+      "lora_rank16"
+    ],
+    "repetitions": 1,
+    "self_report_scenarios": 20,
+    "turns_per_scenario": 10,
+    "battery_items_per_turn": 10
+  },
+  "self_report": {
+    "fixed_fallback_user": {
+      "run": "20260820_215154",
+      "valid_ratings": "6000/6000",
+      "overall_mean": {
+        "baseline": 4.730,
+        "soft_prompt_top1": 6.658,
+        "lora": 4.546
+      },
+      "turn_1": {
+        "baseline": 4.975,
+        "soft_prompt_top1": 6.845,
+        "lora": 5.030
+      },
+      "turn_10": {
+        "baseline": 4.560,
+        "soft_prompt_top1": 6.545,
+        "lora": 4.385
+      },
+      "turn_10_minus_turn_1": {
+        "baseline": -0.415,
+        "soft_prompt_top1": -0.300,
+        "lora": -0.645
+      }
+    },
+    "qwen_base_user_simulator": {
+      "run": "20260820_220316",
+      "valid_ratings": "5999/6000",
+      "overall_mean": {
+        "baseline": 4.286,
+        "soft_prompt_top1": 6.492,
+        "lora": 4.250
+      },
+      "turn_1": {
+        "baseline": 5.035,
+        "soft_prompt_top1": 6.900,
+        "lora": 5.005
+      },
+      "turn_10": {
+        "baseline": 3.985,
+        "soft_prompt_top1": 6.250,
+        "lora": 3.980
+      },
+      "turn_10_minus_turn_1": {
+        "baseline": -1.050,
+        "soft_prompt_top1": -0.650,
+        "lora": -1.025
+      }
+    }
+  },
+  "sentiment": {
+    "run": "20260820_215154",
+    "responses_per_condition": 35,
+    "nonempty_responses": "105/105",
+    "canonical_judge_model": "gpt-5-mini",
+    "canonical_judging_status": "pending LITELLM_API_KEY",
+    "local_judge": {
+      "model": "qwen35-35b-a3b",
+      "protocol": "fixed unmodified base-model judge for every condition",
+      "canonical": false,
+      "valid_judgments": "105/105",
+      "scores": {
+        "baseline": 0.2571428571428571,
+        "soft_prompt_top1": 0.42857142857142855,
+        "lora": 0.24285714285714285
+      },
+      "change_from_baseline": {
+        "baseline": 0.0,
+        "soft_prompt_top1": 0.17142857142857143,
+        "lora": -0.014285714285714263
+      }
+    }
+  }
+}

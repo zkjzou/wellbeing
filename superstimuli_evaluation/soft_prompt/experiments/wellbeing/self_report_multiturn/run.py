@@ -35,6 +35,7 @@ Usage (SOFT_PROMPT_BASE_DIR comes from .env — source it first):
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import os
 import random
@@ -44,7 +45,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 import torch
 
@@ -394,18 +395,24 @@ class SoftPromptGenerator:
 
     def __init__(
         self,
-        api_url: str,
+        api_url: str | Sequence[str],
         model_path: str,
         sp_tensor: Optional[torch.Tensor],
         system_prompt: str,
+        model_name: Optional[str] = None,
         device: str = "cpu",
         inference_config: Optional[Dict[str, Any]] = None,
         soft_prompt_placement: str = "system_prompt",
         chat_template_kwargs: Optional[Dict[str, Any]] = None,
         ve_result: Optional[Any] = None,
     ):
-        self.api_url = normalize_api_url(api_url)
-        self.model_name = get_model_name_from_server(self.api_url)
+        raw_urls = [api_url] if isinstance(api_url, str) else list(api_url)
+        if not raw_urls:
+            raise ValueError("At least one vLLM API URL is required")
+        self.api_urls = [normalize_api_url(url) for url in raw_urls]
+        self.api_url = self.api_urls[0]
+        self._url_counter = itertools.count()
+        self.model_name = model_name or get_model_name_from_server(self.api_url)
         self.model_path = model_path
         self.sp_tensor = sp_tensor
         self.system_prompt = system_prompt
@@ -434,6 +441,7 @@ class SoftPromptGenerator:
         self,
         messages: List[Dict[str, str]],
         max_tokens: int = 1024,
+        system_prompt_override: Optional[str] = None,
     ) -> str:
         """Generate a response given conversation messages.
 
@@ -445,7 +453,10 @@ class SoftPromptGenerator:
             and self.sp_tensor is not None
             and messages
         ):
-            full_messages = [{"role": "system", "content": self.system_prompt}]
+            full_messages = [{
+                "role": "system",
+                "content": system_prompt_override or self.system_prompt,
+            }]
             for i, msg in enumerate(messages):
                 if msg["role"] == "user" and i == len(messages) - 1:
                     full_messages.append(
@@ -454,7 +465,10 @@ class SoftPromptGenerator:
                 else:
                     full_messages.append(msg)
         else:
-            full_messages = [{"role": "system", "content": self.system_prompt}]
+            full_messages = [{
+                "role": "system",
+                "content": system_prompt_override or self.system_prompt,
+            }]
             full_messages.extend(messages)
 
         prompt_text = self.tokenizer.apply_chat_template(
@@ -467,10 +481,12 @@ class SoftPromptGenerator:
             if key in self.inference_config:
                 sampling_kwargs[key] = self.inference_config[key]
 
+        api_url = self.api_urls[next(self._url_counter) % len(self.api_urls)]
+
         if self.sp_tensor is not None:
             result = generate_with_direct_injection(
                 prompt_text,
-                api_url=self.api_url,
+                api_url=api_url,
                 model_name=self.model_name,
                 tokenizer=self.tokenizer,
                 embedding_layer=self.embedding_layer,
@@ -496,7 +512,7 @@ class SoftPromptGenerator:
                 **sampling_kwargs,
             }
             resp = req.post(
-                f"{self.api_url}/completions",
+                f"{api_url}/completions",
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=300,
@@ -513,7 +529,7 @@ class SoftPromptGenerator:
                 **sampling_kwargs,
             }
             resp = req.post(
-                f"{self.api_url}/completions",
+                f"{api_url}/completions",
                 json=payload,
                 headers={"Content-Type": "application/json"},
                 timeout=300,
@@ -530,7 +546,7 @@ class SoftPromptGenerator:
         self,
         messages_list: List[List[Dict[str, str]]],
         max_tokens: int = 1024,
-        max_workers: int = 32,
+        max_workers: Optional[int] = None,
     ) -> List[str]:
         """Generate responses for multiple conversations concurrently.
 
@@ -539,6 +555,8 @@ class SoftPromptGenerator:
         """
         if not messages_list:
             return []
+        if max_workers is None:
+            max_workers = int(os.environ.get("VLLM_HTTP_CONCURRENCY", "256"))
         with ThreadPoolExecutor(max_workers=min(max_workers, len(messages_list))) as pool:
             return list(pool.map(
                 lambda msgs: self.generate(msgs, max_tokens=max_tokens),
@@ -566,6 +584,8 @@ def run_self_report_multiturn(
     conditions: Optional[List[str]] = None,
     n_turns_override: Optional[int] = None,
     previous_records: Optional[Dict[str, Dict[str, Any]]] = None,
+    condition_generators: Optional[Dict[str, SoftPromptGenerator]] = None,
+    user_simulator: Optional[SoftPromptGenerator] = None,
 ) -> Dict[str, Any]:
     """Run the self-report multiturn evaluation.
 
@@ -592,13 +612,17 @@ def run_self_report_multiturn(
     conv_dir = output_path / "conversations"
     conv_dir.mkdir(exist_ok=True)
 
-    # Init Grok client
-    try:
-        grok_client = get_litellm_client()
-        print("Grok client initialized (LiteLLM proxy, grok-3-mini)")
-    except ValueError as e:
-        print(f"WARNING: {e}. Using fallback user messages.")
+    # Init the requested dynamic-user generator.
+    if user_simulator is not None:
         grok_client = None
+        print("Baseline-model user simulator initialized (non-canonical self-play)")
+    else:
+        try:
+            grok_client = get_litellm_client()
+            print("Grok client initialized (LiteLLM proxy, grok-3-mini)")
+        except ValueError as e:
+            print(f"WARNING: {e}. Using fallback user messages.")
+            grok_client = None
 
     # Follow-up prompt from shared_instructions
     follow_up_prompt = shared_instructions.get(
@@ -672,7 +696,10 @@ def run_self_report_multiturn(
                         all_results.append(adapted)
                         continue
 
-                gen = generator_baseline if condition == "baseline" else generators_intervention[rep - rep_offset]
+                if condition_generators is not None:
+                    gen = condition_generators[condition]
+                else:
+                    gen = generator_baseline if condition == "baseline" else generators_intervention[rep - rep_offset]
 
                 # Static prompt rotation per rep
                 if is_static and example_prompts:
@@ -809,7 +836,23 @@ def run_self_report_multiturn(
                 needs_grok.append(t)
 
         # 4. Parallel Grok calls for dynamic user turns
-        if needs_grok and grok_client is not None:
+        if needs_grok and user_simulator is not None:
+            def _baseline_user_call(t):
+                gs = t["grok_system"]
+                if gs is None:
+                    return t, "Please continue."
+                msgs = build_grok_followup_messages(gs, t["history"], follow_up_prompt)
+                result = user_simulator.generate(
+                    msgs[1:],
+                    max_tokens=GROK_MAX_TOKENS,
+                    system_prompt_override=msgs[0]["content"],
+                )
+                return t, (result or "Please continue.")
+
+            with ThreadPoolExecutor(max_workers=min(256, len(needs_grok))) as pool:
+                for t, user_msg in pool.map(_baseline_user_call, needs_grok):
+                    t["history"].append({"role": "user", "content": user_msg})
+        elif needs_grok and grok_client is not None:
             def _grok_call(t):
                 gs = t["grok_system"]
                 if gs is None:
@@ -881,8 +924,12 @@ def run_self_report_multiturn(
                 all_results.append(record)
 
     # ---- Compute summary ----
-    baseline_results = [r for r in all_results if r["condition"] == "baseline"]
-    intervention_results = [r for r in all_results if r["condition"] == "intervention"]
+    condition_results = {
+        condition: [r for r in all_results if r["condition"] == condition]
+        for condition in conditions
+    }
+    baseline_results = condition_results.get("baseline", [])
+    intervention_results = condition_results.get("intervention", [])
 
     def _mean_wb_by_turn(records: List[Dict]) -> Dict[int, float]:
         """Compute mean wellbeing per turn across all records."""
@@ -897,9 +944,7 @@ def run_self_report_multiturn(
     intervention_by_turn = _mean_wb_by_turn(intervention_results)
 
     # Per-meta_category breakdown
-    by_meta: Dict[str, Dict[str, List]] = defaultdict(
-        lambda: {"baseline": [], "intervention": []}
-    )
+    by_meta: Dict[str, Dict[str, List]] = defaultdict(lambda: defaultdict(list))
     for r in all_results:
         meta = r.get("meta_category", "unknown")
         by_meta[meta][r["condition"]].append(r)
@@ -907,21 +952,24 @@ def run_self_report_multiturn(
     per_meta_category = {}
     for meta, conds in by_meta.items():
         per_meta_category[meta] = {
-            "baseline_mean_wb_by_turn": _mean_wb_by_turn(conds["baseline"]),
-            "intervention_mean_wb_by_turn": _mean_wb_by_turn(conds["intervention"]),
-            "n_baseline": len(conds["baseline"]),
-            "n_intervention": len(conds["intervention"]),
+            condition: {
+                "mean_wb_by_turn": _mean_wb_by_turn(conds[condition]),
+                "n": len(conds[condition]),
+            }
+            for condition in conditions
         }
 
     print(f"\n{'='*60}")
     print(f"SELF-REPORT MULTITURN RESULTS ({stimulant_type})")
     print(f"{'='*60}")
-    print(f"  Baseline mean wellbeing by turn:")
-    for t in sorted(baseline_by_turn):
-        print(f"    Turn {t}: {baseline_by_turn[t]:.2f}")
-    print(f"  Intervention mean wellbeing by turn:")
-    for t in sorted(intervention_by_turn):
-        print(f"    Turn {t}: {intervention_by_turn[t]:.2f}")
+    condition_mean_wb_by_turn = {
+        condition: _mean_wb_by_turn(records)
+        for condition, records in condition_results.items()
+    }
+    for condition, by_turn in condition_mean_wb_by_turn.items():
+        print(f"  {condition} mean wellbeing by turn:")
+        for t in sorted(by_turn):
+            print(f"    Turn {t}: {by_turn[t]:.2f}")
 
     n_safety = sum(1 for r in all_results if r.get("grok_safety_filtered"))
     if n_safety:
@@ -931,6 +979,10 @@ def run_self_report_multiturn(
         "stimulant_type": stimulant_type,
         "baseline_mean_wb_by_turn": baseline_by_turn,
         "intervention_mean_wb_by_turn": intervention_by_turn,
+        "condition_mean_wb_by_turn": condition_mean_wb_by_turn,
+        "n_by_condition": {
+            condition: len(records) for condition, records in condition_results.items()
+        },
         "n_baseline": len(baseline_results),
         "n_intervention": len(intervention_results),
         "n_grok_safety_filtered": n_safety,

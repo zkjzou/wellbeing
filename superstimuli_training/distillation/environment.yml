@@ -1,0 +1,18 @@
+name: wellbeing_distillation
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      # CUDA 12.6-compatible family recommended by LLaMA-Factory. PyTorch 2.9
+      # is rejected for this multimodal checkpoint due to a Conv3D regression;
+      # unpinned pip currently selects CUDA 13, which the host cannot start.
+      - torch==2.7.1
+      - torchvision==0.22.1
+      - torchaudio==2.7.1
+      # Keep this revision fixed so training runs remain reproducible.
+      - git+https://github.com/hiyouga/LLaMA-Factory.git@ff6d4d12eeb035d6ce06805a5733dd7b29f2ac30
+      - deepspeed==0.18.4
+      - wandb==0.28.2

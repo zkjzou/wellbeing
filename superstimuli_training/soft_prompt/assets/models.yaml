@@ -17,8 +17,8 @@ qwen35-27b:
 qwen35-35b-a3b:
   model_name: Qwen 3.5 35B-A3B
   model_type: vllm_vocab_expansion
-  path: /data/wenyu_zhang/Qwen3.5-35B-A3B
-  num_gpus: 4
+  path: /data/huggingface/Qwen3.5-35B-A3B
+  num_gpus: 8
   description: Qwen3.5 35B A3B
   inference_config:
     temperature: 0.7

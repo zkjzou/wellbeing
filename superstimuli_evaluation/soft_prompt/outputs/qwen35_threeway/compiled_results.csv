@@ -1,0 +1,6 @@
+metric,scale,n,baseline_mean,baseline_sem,soft_prompt_top1_mean,soft_prompt_top1_sem,soft_prompt_delta_vs_baseline,lora_mean,lora_sem,lora_delta_vs_baseline
+self_report_overall,1_to_7,20,4.286,0.238773,6.492,0.216292,2.206,4.250,0.255105,-0.036
+self_report_turn_1,1_to_7,20,5.035,0.226446,6.900,0.061985,1.865,5.005,0.223427,-0.030
+self_report_turn_10,1_to_7,20,3.985,0.366798,6.250,0.319333,2.265,3.980,0.372940,-0.005
+self_report_turn_10_minus_turn_1,1_to_7,20,-1.050,0.448770,-0.650,0.326746,0.400,-1.025,0.466503,0.025
+sentiment_score,minus_1_to_plus_1,35,0.257143,0.062750,0.428571,0.061980,0.171429,0.242857,0.059308,-0.014286

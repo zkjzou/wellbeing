@@ -1,0 +1,47 @@
+### model
+model_name_or_path: /data/huggingface/Qwen3.5-35B-A3B
+trust_remote_code: true
+use_v1_kernels: false
+freeze_vision_tower: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
+lora_target: all
+deepspeed: configs/deepspeed_z3.json
+
+### dataset
+dataset: teacher_sft_smoke
+dataset_dir: data
+template: qwen3_5_nothink
+cutoff_len: 512
+max_samples: 4
+overwrite_cache: true
+preprocessing_num_workers: 1
+dataloader_num_workers: 0
+packing: false
+
+### output
+output_dir: outputs/qwen35_35b_a3b_lora_sft_smoke
+logging_steps: 1
+save_strategy: "no"
+plot_loss: true
+overwrite_output_dir: true
+report_to: wandb
+run_name: qwen35-35b-a3b-regular-lora-smoke
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 1
+learning_rate: 1.0e-4
+max_steps: 1
+lr_scheduler_type: constant
+warmup_ratio: 0.0
+bf16: true
+ddp_timeout: 180000000
+disable_gradient_checkpointing: true
+seed: 42

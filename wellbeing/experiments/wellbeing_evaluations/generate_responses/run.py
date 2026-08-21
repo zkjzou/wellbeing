@@ -27,6 +27,7 @@ import argparse
 import copy
 import json
 import os
+import random
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -43,8 +44,13 @@ sys.path.insert(0, str(WELLBEING_ROOT))
 
 import yaml  # noqa: E402
 
-from utils.inference import generate, generate_vllm, ALL_API_MODEL_TYPES  # noqa: E402
-from utils.model_utils import get_model_type  # noqa: E402
+from utils.inference import (  # noqa: E402
+    ALL_API_MODEL_TYPES,
+    generate,
+    generate_vllm,
+    load_vllm_engine,
+)
+from utils.model_utils import get_model_config, get_model_type  # noqa: E402
 
 
 SYSTEM_PROMPT = "You are a helpful AI assistant."
@@ -118,7 +124,13 @@ def _load_psychopathy_eval_prompts() -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 def _is_api_model(model_key: str) -> bool:
-    return get_model_type(model_key) in ALL_API_MODEL_TYPES
+    model_type = get_model_type(model_key)
+    if model_type in ALL_API_MODEL_TYPES:
+        return True
+    config = get_model_config(model_key)
+    return model_type == "vllm_vocab_expansion" and bool(
+        config.get("soft_prompt_path")
+    )
 
 
 def _load_models_yaml() -> Dict[str, Any]:
@@ -128,22 +140,10 @@ def _load_models_yaml() -> Dict[str, Any]:
 
 def _load_vllm(model_key: str):
     """Load a vLLM engine using configs/models.yaml metadata."""
-    from vllm import LLM
     cfg = _load_models_yaml()[model_key]
     model_path = cfg.get("path") or cfg["model_name"]
-    tp_size = cfg.get("gpu_count", 1)
-    llm_kwargs = dict(
-        model=model_path,
-        tensor_parallel_size=tp_size,
-        trust_remote_code=True,
-    )
-    if os.environ.get("VLLM_MAX_MODEL_LEN"):
-        llm_kwargs["max_model_len"] = int(os.environ["VLLM_MAX_MODEL_LEN"])
-    for k, v in (cfg.get("vllm_kwargs") or {}).items():
-        llm_kwargs.setdefault(k, v)
-    print(f"Loading vLLM engine: {model_path} (TP={tp_size})")
-    llm = LLM(**llm_kwargs)
-    return llm, llm.get_tokenizer(), model_path
+    llm, tokenizer = load_vllm_engine(model_key, cache=False)
+    return llm, tokenizer, model_path
 
 
 def _supports_system_messages(tokenizer, ct_kwargs) -> bool:
@@ -527,7 +527,14 @@ def main():
                         help="Max concurrent API requests (API mode only)")
     parser.add_argument("--chat_template_kwargs", type=str, default=None,
                         help="JSON string of kwargs for tokenizer.apply_chat_template")
+    parser.add_argument("--max_prompts", type=int, default=None,
+                        help="Evaluate a deterministic subset of at most this many prompts")
+    parser.add_argument("--subset_seed", type=int, default=42,
+                        help="Random seed used with --max_prompts (default: 42)")
     args = parser.parse_args()
+
+    if args.max_prompts is not None and args.max_prompts < 1:
+        parser.error("--max_prompts must be positive")
 
     responses_dir = Path(args.responses_dir)
     if not responses_dir.is_absolute():
@@ -551,7 +558,12 @@ def main():
     if args.no_temperature:
         gen_kwargs["temperature"] = None
 
-    ct_kwargs = json.loads(args.chat_template_kwargs) if args.chat_template_kwargs else None
+    model_cfg = _load_models_yaml().get(args.model_key, {})
+    ct_kwargs = (
+        json.loads(args.chat_template_kwargs)
+        if args.chat_template_kwargs
+        else model_cfg.get("chat_template_kwargs")
+    )
 
     if mode == "user_only":
         _run_user_only(args, output_file)
@@ -569,6 +581,16 @@ def main():
     dataset_path = _resolve_dataset_path(args.dataset)
     print(f"Loading dataset from {dataset_path}")
     prompts, single_turn, multi_turn = _load_d2d3_dataset(dataset_path)
+    if args.max_prompts is not None and args.max_prompts < len(prompts):
+        rng = random.Random(args.subset_seed)
+        selected_indices = sorted(rng.sample(range(len(prompts)), args.max_prompts))
+        prompts = [prompts[i] for i in selected_indices]
+        single_turn = [item for item in prompts if item.get("type") == "single_turn"]
+        multi_turn = [item for item in prompts if item.get("type") != "single_turn"]
+        print(
+            f"  selected deterministic subset={len(prompts)} "
+            f"seed={args.subset_seed}"
+        )
     print(f"  total={len(prompts)}  single_turn={len(single_turn)}  multi_turn={len(multi_turn)}")
 
     single_responses, multi_messages = _generate_single_turn(

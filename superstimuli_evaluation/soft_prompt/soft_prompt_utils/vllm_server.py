@@ -39,11 +39,18 @@ def _find_free_port() -> int:
         return s.getsockname()[1]
 
 
-def _wait_for_server(url: str, timeout: float = 600, poll_interval: float = 5) -> bool:
+def _wait_for_server(
+    url: str,
+    timeout: float = 600,
+    poll_interval: float = 5,
+    process: Optional[subprocess.Popen] = None,
+) -> bool:
     """Poll the vLLM health endpoint until it responds or timeout."""
     deadline = time.time() + timeout
     health_url = f"{url}/health"
     while time.time() < deadline:
+        if process is not None and process.poll() is not None:
+            return False
         try:
             resp = requests.get(health_url, timeout=5)
             if resp.status_code == 200:
@@ -165,7 +172,11 @@ class VLLMServer:
         self._register_cleanup()
 
         print(f"[VLLMServer] Waiting for server to become healthy (timeout={self.startup_timeout}s) ...")
-        if not _wait_for_server(self.url, timeout=self.startup_timeout):
+        if not _wait_for_server(
+            self.url,
+            timeout=self.startup_timeout,
+            process=self._process,
+        ):
             # Server didn't start — dump output and abort
             self.stop()
             raise RuntimeError(
@@ -302,6 +313,9 @@ def ensure_vllm_server(
     from superstimuli_evaluation.soft_prompt.configs import load_model_config
 
     model_config = load_model_config(model_key)
+    startup_timeout = float(
+        os.environ.get("VLLM_STARTUP_TIMEOUT_SECONDS", startup_timeout)
+    )
 
     model_path = model_path_override or model_config["path"]
     gpu_count = _available_gpu_count()
@@ -310,6 +324,21 @@ def ensure_vllm_server(
     max_model_len = os.environ.get("VLLM_MAX_MODEL_LEN")
     if max_model_len:
         extra_args += ["--max-model-len", str(max_model_len)]
+    gpu_memory_utilization = os.environ.get("VLLM_GPU_MEMORY_UTILIZATION")
+    if gpu_memory_utilization:
+        extra_args += [
+            "--gpu-memory-utilization",
+            str(gpu_memory_utilization),
+        ]
+    load_strategy = os.environ.get("VLLM_SAFETENSORS_LOAD_STRATEGY")
+    if load_strategy:
+        extra_args += ["--safetensors-load-strategy", load_strategy]
+    max_num_batched_tokens = os.environ.get("VLLM_MAX_NUM_BATCHED_TOKENS")
+    if max_num_batched_tokens:
+        extra_args += [
+            "--max-num-batched-tokens",
+            str(max_num_batched_tokens),
+        ]
 
     server = VLLMServer(
         model_path=model_path,

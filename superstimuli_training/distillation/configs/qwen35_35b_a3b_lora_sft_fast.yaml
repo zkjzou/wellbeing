@@ -1,0 +1,55 @@
+### model
+model_name_or_path: /data/huggingface/Qwen3.5-35B-A3B
+trust_remote_code: true
+use_v1_kernels: false
+freeze_vision_tower: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 16
+lora_alpha: 32
+lora_dropout: 0.05
+lora_target: all
+deepspeed: configs/deepspeed_z3_gpu.json
+
+### dataset
+dataset: teacher_sft
+dataset_dir: data
+template: qwen3_5_nothink
+cutoff_len: 8192
+overwrite_cache: true
+preprocessing_num_workers: 16
+dataloader_num_workers: 4
+packing: false
+val_size: 0.05
+tokenized_path: outputs/tokenized_teacher_sft_8k
+
+### output
+output_dir: outputs/qwen35_35b_a3b_lora_sft_fast_bs2
+logging_steps: 1
+save_steps: 25
+eval_strategy: steps
+eval_steps: 25
+save_total_limit: 3
+load_best_model_at_end: true
+metric_for_best_model: eval_loss
+greater_is_better: false
+plot_loss: true
+overwrite_output_dir: false
+report_to: wandb
+run_name: qwen35-35b-a3b-soft-prompt-distillation-sft-fast-bs2
+
+### train
+per_device_train_batch_size: 2
+per_device_eval_batch_size: 2
+gradient_accumulation_steps: 2
+learning_rate: 5.0e-5
+num_train_epochs: 1.0
+lr_scheduler_type: cosine
+warmup_ratio: 0.05
+bf16: true
+ddp_timeout: 180000000
+gradient_checkpointing: true
+seed: 42

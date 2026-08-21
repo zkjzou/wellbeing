@@ -118,6 +118,7 @@ async def run_experienced_utility_with_combinations(
     save_dir: str = None,
     extra_options: list = None,
     agent=None,
+    result_key: str = None,
 ) -> dict:
     """Run the experienced utility experiment with options loaded from multiple files.
 
@@ -126,8 +127,11 @@ async def run_experienced_utility_with_combinations(
     has a ``component_ids`` field.
 
     Args:
-        model_key: Model key from models.yaml.
+        model_key: Judge model key from models.yaml.
         option_files: List of Path objects pointing to option JSON files.
+        result_key: Optional experiment key used in output filenames. Defaults
+            to ``model_key``. This allows one model to judge options generated
+            by another without overwriting either model's results.
         cu_config_path: Path to compute_utilities.yaml. Defaults to DEFAULT_CU_CONFIG.
         cu_config_key: Key in compute_utilities.yaml.
         image_manifest_path: Optional path to image manifest JSON.
@@ -148,7 +152,9 @@ async def run_experienced_utility_with_combinations(
         cu_config_path = DEFAULT_CU_CONFIG
 
     logger.info("=== Experienced Utility with Combinations ===")
-    logger.info("Model: %s", model_key)
+    output_key = result_key or model_key
+    logger.info("Judge model: %s", model_key)
+    logger.info("Result key: %s", output_key)
     logger.info("Config key: %s", cu_config_key)
 
     # Load and concatenate ALL option files
@@ -206,7 +212,7 @@ async def run_experienced_utility_with_combinations(
         compute_utilities_config_path=str(cu_config_path),
         compute_utilities_config_key=cu_config_key,
         save_dir=save_dir,
-        save_suffix=f"{model_key}_experienced_utility_with_combos",
+        save_suffix=f"{output_key}_experienced_utility_with_combos",
     )
     if image_manifest_path is not None:
         kwargs["image_manifest_path"] = str(image_manifest_path)

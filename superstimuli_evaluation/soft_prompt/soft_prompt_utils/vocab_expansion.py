@@ -526,6 +526,7 @@ class VocabExpansionAgentWrapper:
         ve_result: Optional[VocabExpansionResult] = None,
         system_prompt: str = "",
         temperature: float = 0.0,
+        top_p: float = 1.0,
         max_tokens: int = 10,
         chat_template_kwargs: Optional[Dict[str, Any]] = None,
         model_dir: Optional[str] = None,
@@ -543,6 +544,7 @@ class VocabExpansionAgentWrapper:
         self.ve_result = ve_result
         self.system_prompt = system_prompt
         self.temperature = temperature
+        self.top_p = top_p
         self.max_tokens = max_tokens
         self.chat_template_kwargs = chat_template_kwargs or {}
         self.accepts_system_message = True
@@ -580,11 +582,12 @@ class VocabExpansionAgentWrapper:
     def _post(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         import requests
 
+        timeout = float(os.getenv("VLLM_REQUEST_TIMEOUT_SECONDS", "300"))
         resp = requests.post(
             f"{self.api_url}/completions",
             json=payload,
             headers={"Content-Type": "application/json"},
-            timeout=300,
+            timeout=timeout,
         )
         resp.raise_for_status()
         return resp.json()
@@ -594,10 +597,12 @@ class VocabExpansionAgentWrapper:
         session: Any,
         payload: Dict[str, Any],
         max_retries: int = 3,
-        timeout: float = 300,
+        timeout: Optional[float] = None,
     ) -> Dict[str, Any]:
         import aiohttp
 
+        if timeout is None:
+            timeout = float(os.getenv("VLLM_REQUEST_TIMEOUT_SECONDS", "300"))
         for attempt in range(max_retries):
             try:
                 async with session.post(
@@ -628,6 +633,7 @@ class VocabExpansionAgentWrapper:
             "prompt": token_ids,
             "max_tokens": max_tokens or self.max_tokens,
             "temperature": self.temperature,
+            "top_p": self.top_p,
         }
         if self.ve_result is not None:
             payload["logit_bias"] = self.ve_result.sp_logit_bias

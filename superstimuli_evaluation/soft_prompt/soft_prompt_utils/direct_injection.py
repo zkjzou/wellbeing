@@ -328,11 +328,19 @@ def normalize_api_url(server_url: str) -> str:
 
 
 def load_soft_prompt_tensor(run_dir: str) -> torch.Tensor:
-    """Load soft prompt embeddings from a run directory.
+    """Load soft prompt embeddings from a run directory or ``.pt`` file.
 
     Returns 2-D tensor ``(n_tokens, hidden_dim)``.
     """
     run_path = Path(run_dir)
+
+    if run_path.is_file():
+        tensor = torch.load(run_path, map_location="cpu", weights_only=True)
+        if tensor.dim() == 3:
+            tensor = tensor[0]
+        elif tensor.dim() == 1:
+            tensor = tensor.unsqueeze(0)
+        return tensor
 
     # Try known filenames in order
     for name in [
@@ -391,6 +399,7 @@ def _extract_embedding_weight_safetensors(
 
     model_path = Path(model_path_str)
     target_keys = [
+        "model.language_model.embed_tokens.weight",
         "model.embed_tokens.weight",
         "transformer.wte.weight",
     ]
