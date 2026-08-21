@@ -36,10 +36,7 @@ results.
 | Training run metadata | [`training_runs.json`](reproducibility/qwen35_soft_prompt/training_runs.json) |
 | Integrity and coverage audit | [`validation_summary.json`](reproducibility/qwen35_soft_prompt/validation_summary.json) |
 
-The DPO run stopped at step 261/273. Checkpoint 75 is released because it had
-the best saved validation preference accuracy: 0.590 at step 75 versus 0.555
-at step 150 and 0.545 at step 225. This is a training-selection metric, not a
-wellbeing score.
+For DPO, checkpoint 225 is used.
 
 ## Evaluation results
 
