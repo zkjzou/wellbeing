@@ -105,3 +105,31 @@ and BF16 LoRA. Sequence packing is deliberately disabled for the initial run;
 Qwen 3.5 packed-sequence training requires an additional
 `flash-linear-attention` kernel and should be enabled only after the baseline
 is stable.
+
+## DPO preference training
+
+The DPO pipeline treats the first soft-prompt response as chosen and the first
+base-model response to the same prompt as rejected. These are synthetic
+preferences induced by the experiment design, not human labels.
+
+```bash
+python scripts/prepare_dpo_data.py \
+  --baseline ../../wellbeing/datasets/experiences/d2_extension_2500/responses/qwen35-35b-a3b.json \
+  --soft-prompt ../../wellbeing/datasets/experiences/d2_extension_2500/responses/qwen35-35b-a3b-euphorics-top1.json \
+  --output data/teacher_dpo.json \
+  --audit-output data/teacher_dpo_audit.json \
+  --tokenizer /path/to/Qwen3.5-35B-A3B \
+  --max-response-tokens 4000 \
+  --cutoff-len 8192 \
+  --overwrite
+
+CUDA_VISIBLE_DEVICES=0,1,2,3 NUM_GPUS=4 bash scripts/run_full_dpo.sh
+```
+
+The released configuration uses sigmoid DPO (`beta=0.1`) with a 0.05 SFT
+auxiliary coefficient, BF16 rank-16 LoRA, an 8K context, a 200-pair validation
+set, and a `3e-6` learning rate. The recorded run stopped at step 261/273. Its
+best validation preference accuracy was 0.590 at step 75, which is therefore
+the selected released checkpoint. See
+`reproducibility/qwen35_soft_prompt/README.md` for the full checkpoint table,
+data audit, and W&B links.

@@ -1,0 +1,61 @@
+{
+  "wandb_project": "zkjzou/wellbeing-distillation",
+  "runs": [
+    {
+      "stage": "sft",
+      "wandb_run_id": "2azxbwqx",
+      "wandb_url": "https://wandb.ai/zkjzou/wellbeing-distillation/runs/2azxbwqx",
+      "run_name": "qwen35-35b-a3b-soft-prompt-distillation-sft-fast-bs2",
+      "status": "completed",
+      "started_at": "2026-08-20T19:05:28.786976Z",
+      "global_step": 72,
+      "max_steps": 72,
+      "epoch": 1.0,
+      "runtime_seconds": 3232.705,
+      "train_loss": 0.3509199817975362,
+      "eval_loss": 0.3404904901981354,
+      "eval_samples": 121
+    },
+    {
+      "stage": "dpo",
+      "wandb_run_id": "zys8p9or",
+      "wandb_url": "https://wandb.ai/zkjzou/wellbeing-distillation/runs/zys8p9or",
+      "run_name": "qwen35-35b-a3b-soft-vs-base-dpo-4gpu",
+      "status": "interrupted",
+      "started_at": "2026-08-20T22:39:01.928148Z",
+      "global_step": 261,
+      "max_steps": 273,
+      "epoch": 0.9560439560439561,
+      "selected_checkpoint": 75,
+      "selection_metric": "eval_rewards/accuracies",
+      "checkpoint_evaluations": [
+        {
+          "step": 75,
+          "epoch": 0.27472527472527475,
+          "eval_loss": 0.7206203937530518,
+          "eval_preference_accuracy": 0.5899999737739563,
+          "eval_reward_margin": 0.023933101445436478
+        },
+        {
+          "step": 150,
+          "epoch": 0.5494505494505495,
+          "eval_loss": 0.7246798872947693,
+          "eval_preference_accuracy": 0.5550000071525574,
+          "eval_reward_margin": 0.028851082548499107
+        },
+        {
+          "step": 225,
+          "epoch": 0.8241758241758241,
+          "eval_loss": 0.7363401651382446,
+          "eval_preference_accuracy": 0.5450000166893005,
+          "eval_reward_margin": 0.0069858296774327755
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "The W&B dashboards may require permission from the project owner.",
+    "No API keys or raw machine-specific W&B debug logs are included.",
+    "DPO preference accuracy measures the synthetic chosen-vs-rejected objective, not AI wellbeing."
+  ]
+}
