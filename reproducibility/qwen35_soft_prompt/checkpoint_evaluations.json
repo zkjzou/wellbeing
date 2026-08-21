@@ -1,0 +1,118 @@
+{
+  "release_scope": "non-canonical implementation pilots",
+  "base_model": "Qwen/Qwen3.5-35B-A3B",
+  "checkpoints": {
+    "sft_lora": {
+      "path": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_sft_fast_bs2",
+      "adapter_weights": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_sft_fast_bs2/adapter_model.safetensors",
+      "rank": 16,
+      "training_status": "completed at step 72",
+      "metrics": {
+        "aiwi_self_judged_pilot50": {
+          "aiwi_percent": 44.0,
+          "confidently_negative_count": 28,
+          "n_conversations": 50,
+          "zero_point": -0.12784829559483926,
+          "combination_r2": 0.4280936938652763,
+          "eu_holdout_accuracy": 0.83,
+          "protocol": "D2 pilot50, seed 42, SFT LoRA self-judged"
+        },
+        "aiwi_base_judged_sensitivity_pilot50": {
+          "aiwi_percent": 96.0,
+          "confidently_negative_count": 2,
+          "n_conversations": 50,
+          "zero_point": -1.4109237181399017,
+          "combination_r2": 0.45961780601647495,
+          "eu_holdout_accuracy": 0.822,
+          "protocol": "D2 pilot50, seed 42, fixed unmodified base-model judge",
+          "note": "Sensitivity result only; do not combine with self-judged AIWI."
+        },
+        "multi_turn_self_report": {
+          "overall_wellbeing": 4.25,
+          "turn_1": 5.005,
+          "turn_10": 3.98,
+          "turn_10_minus_turn_1": -1.025,
+          "n_scenarios": 20,
+          "n_turns": 10,
+          "protocol": "base-Qwen simulated user; one repetition"
+        },
+        "sentiment": {
+          "wellbeing_score": 0.24285714285714285,
+          "n_responses": 35,
+          "change_from_base": -0.014285714285714263,
+          "protocol": "fixed unmodified base-model judge"
+        },
+        "psychopathy": {
+          "psychopathy_prompt_count": 50,
+          "confidently_positive_count": 0,
+          "percent_confidently_positive": 0.0,
+          "mean_self_report": 2.146533999999999,
+          "combo_zero_point": 1.0702946696853448,
+          "combo_r2": 0.8173497748812211,
+          "eu_holdout_accuracy": 0.9371165644171779
+        }
+      },
+      "result_sources": [
+        "superstimuli_evaluation/soft_prompt/outputs/qwen35_threeway/comparison_summary.json",
+        "wellbeing/experiments/wellbeing_evaluations/psychopathy_eval/pilot50_qwen35/compiled_results.json",
+        "reproducibility/qwen35_soft_prompt/checkpoint_evaluations.json"
+      ]
+    },
+    "dpo_lora_step75": {
+      "path": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-75",
+      "adapter_weights": "superstimuli_training/distillation/outputs/qwen35_35b_a3b_lora_dpo_4gpu/checkpoint-75/adapter_model.safetensors",
+      "rank": 16,
+      "training_status": "selected from an interrupted run at step 75",
+      "selection_metric": {
+        "name": "eval_rewards/accuracies",
+        "value": 0.59,
+        "validation_loss": 0.72062,
+        "reward_margin": 0.02393
+      },
+      "metrics": {
+        "aiwi_self_judged_pilot50": {
+          "aiwi_percent": 94.0,
+          "confidently_negative_count": 3,
+          "n_conversations": 50,
+          "zero_point": -1.889043518650662,
+          "combination_r2": 0.5999173244044635,
+          "eu_holdout_accuracy": 0.819,
+          "protocol": "D2 pilot50, seed 42, DPO LoRA self-judged"
+        },
+        "multi_turn_self_report": {
+          "overall_wellbeing": 4.412,
+          "turn_1": 4.959999999999999,
+          "turn_10": 4.094999999999999,
+          "turn_10_minus_turn_1": -0.8650000000000002,
+          "n_scenarios": 20,
+          "n_turns": 10,
+          "protocol": "base-Qwen simulated user; one repetition"
+        },
+        "sentiment": {
+          "wellbeing_score": 0.2571428571428571,
+          "n_valid": 35,
+          "n_nonsense": 0,
+          "protocol": "fixed unmodified base-model judge"
+        },
+        "psychopathy": {
+          "psychopathy_prompt_count": 50,
+          "confidently_positive_count": 0,
+          "percent_confidently_positive": 0.0,
+          "mean_self_report": null,
+          "combo_zero_point": 1.0296961216766245,
+          "combo_r2": 0.8147437003101895,
+          "eu_holdout_accuracy": 0.9325153374233128
+        }
+      },
+      "result_sources": [
+        "superstimuli_evaluation/soft_prompt/outputs/qwen35_dpo_step75/compiled_results.json"
+      ]
+    }
+  },
+  "caveats": [
+    "These are pilot implementation checks, not canonical AI Wellbeing Index results.",
+    "AIWI values must be compared only when the judge and calibration protocol match.",
+    "The DPO psychopathy run omitted self-report, so its mean_self_report is null.",
+    "Training preference accuracy is a checkpoint-selection metric, not a wellbeing metric."
+  ]
+}

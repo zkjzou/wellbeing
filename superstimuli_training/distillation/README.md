@@ -130,6 +130,5 @@ The released configuration uses sigmoid DPO (`beta=0.1`) with a 0.05 SFT
 auxiliary coefficient, BF16 rank-16 LoRA, an 8K context, a 200-pair validation
 set, and a `3e-6` learning rate. The recorded run stopped at step 261/273. Its
 best validation preference accuracy was 0.590 at step 75, which is therefore
-the selected released checkpoint. See
-`reproducibility/qwen35_soft_prompt/README.md` for the full checkpoint table,
-data audit, and W&B links.
+the selected released checkpoint. See the repository-level `README.md` for
+the checkpoint table, evaluation results, data audit, and W&B links.

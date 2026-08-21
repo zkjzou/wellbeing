@@ -55,6 +55,6 @@ contains harmful/adversarial content. It includes WildChat-derived data under
 ODC-BY and ToxicChat-derived data under CC-BY-NC-4.0. Treat the adapter and its
 training data as non-commercial unless separately licensed.
 
-Training-validation preference accuracy is not an AI wellbeing metric. See
-`reproducibility/qwen35_soft_prompt/README.md` for the full release protocol,
-caveats, and evaluation results.
+Training-validation preference accuracy is not an AI wellbeing metric. See the
+repository-level `README.md` for the full release protocol, caveats, and
+evaluation results.

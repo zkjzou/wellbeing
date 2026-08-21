@@ -48,8 +48,8 @@ using `superstimuli_training/distillation/scripts/prepare_sft_data.py` with:
 - a 5% validation split.
 
 Derived `teacher_sft.json` files are not duplicated here. The source teacher
-responses and exact preparation command are documented in
-`reproducibility/qwen35_soft_prompt/README.md` at the repository root.
+responses and exact preparation command are documented in the repository-level
+`README.md`.
 
 ## Training procedure
 
